@@ -41,8 +41,9 @@ class MyGame {
         int idx = (turnCount-1)%2;
         Player& p = players[idx];
 
+        int prevPos = p.getPosition();
         int roll = dice.roll();
-        int land = p.getPosition() + roll; //dice roll and land
+        int land = prevPos + roll; //dice roll and land
 
         if (land > board.getSize()) { //if board its exceeded
             land = board.getSize();
@@ -50,19 +51,19 @@ class MyGame {
 
         //applies effects and final position to player
         char tileType = board.getTileType(land);
-        int final = board.applyEffect(land);
+        int finalPos = board.applyEffect(land);
 
-        p.setPosition(final);
+        p.setPosition(finalPos);
 
         //format: player's turn, prevPosition, dice, tileType, finalPosition
         cout << "Turn: "<< turnCount << " "
         << "Player: " << p.getId() << " "
-        << "Previous position: " << (p.getPosition() == final ? land-roll : land-roll) << " "
+        << "Previous position: " << (p.getPosition() == finalPos ? land-roll : land-roll) << " "
         << "Dice: " << roll << " "
         << "Tile type: " << tileType << " "
-        << "Final position: " << final << endl;
+        << "Final position: " << finalPos << endl;
 
-        if (checkWinner(final)) {
+        if (checkWinner(finalPos)) {
             printGameOver();
             cout << "Player " << p.getId() << " is the winner!!!" << endl;
             gameOver = true;
