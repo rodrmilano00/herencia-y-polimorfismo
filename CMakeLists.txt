@@ -5,4 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_executable(main.out src/main.cpp
-        src/main.cpp)
+        src/main.cpp
+        src/Dice.cpp
+        src/Dice.h)
