@@ -9,4 +9,6 @@ add_executable(main.out src/main.cpp
         src/Dice.cpp
         src/Dice.h
         src/Player.cpp
-        src/Player.h)
+        src/Player.h
+        src/Board.cpp
+        src/Board.h)
