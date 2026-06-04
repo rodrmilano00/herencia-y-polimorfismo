@@ -18,4 +18,6 @@ add_executable(main.out src/main.cpp
         src/NormalTile.h
         src/SnakeTile.cpp
         src/SnakeTile.h
+        src/LadderTile.cpp
+        src/LadderTile.h
 )
