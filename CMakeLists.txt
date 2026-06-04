@@ -13,4 +13,9 @@ add_executable(main.out src/main.cpp
         src/Board.cpp
         src/Board.h
         src/tile.cpp
-        src/tile.h)
+        src/tile.h
+        src/NormalTile.cpp
+        src/NormalTile.h
+        src/SnakeTile.cpp
+        src/SnakeTile.h
+)
