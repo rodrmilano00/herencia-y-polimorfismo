@@ -7,8 +7,7 @@
 NormalTile::NormalTile(int size) : Tile('N', size) {
 }
 
-int NormalTile::applyEffect(int pos) const {
+int NormalTile::operator+(int pos) const {
     return pos;
 }
-
 
