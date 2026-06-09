@@ -1,4 +1,4 @@
-# TC1030 - Tarea 2: Herencia y Polimorfismo
+# TC1030 - Tarea 3: Sobrecarga de Operadores
 
 ## Instrucciones para compilar y ejecutar
 
@@ -14,7 +14,7 @@ g++ src/main.cpp src/dice.cpp src/player.cpp src/tile.cpp \
     -o snakes.out
 ```
 
-### Ejecución con valores por defecto (equivalente a Tarea 1)
+### Ejecución con valores por defecto
 
 ```bash
 ./snakes.out
@@ -43,10 +43,10 @@ g++ src/main.cpp src/dice.cpp src/player.cpp src/tile.cpp \
 # Manual con configuración por defecto
 ./snakes.out 30 3 3 3 3 2 100 M
 
-# Automático, tablero grande
-./snakes.out 50 5 5 4 4 3 200 A
+# Automático
+./snakes.out 30 3 3 3 3 2 100 A
 
-# Con archivo de entrada (modo manual)
+# Con archivo de entrada/salida
 ./snakes.out < myInput.txt > myOutput.txt
 ```
 
@@ -74,7 +74,7 @@ E
 | Letra | Tipo | Efecto |
 |-------|------|--------|
 | `N` | Normal | Sin efecto |
-| `S` | Serpiente | Retrocede `penalty` casillas |
+| `S` | Serpiente | Retrocede `penalty` casillas (siempre resta) |
 | `L` | Escalera | Avanza `reward` casillas adicionales |
 
 ### Ejemplo de salida
@@ -84,7 +84,7 @@ Press C to continue next turn, or E to end the game:
 1 1 1 4 N 5
 2 2 1 5 N 6
 3 1 5 3 L 11
-4 2 6 6 S 9
+4 2 6 6 S 8
 -- GAME OVER --
 Player 1 is the winner!!!
 ```
@@ -98,7 +98,7 @@ SnakesAndLadders/
 ├── CMakeLists.txt
 ├── README.md
 └── src/
-    ├── main.cpp          <- main(), MyGame, ManualGame, AutoGame
+    ├── main.cpp           <- main(), Turn, MyGame, ManualGame, AutoGame
     ├── tile.h / tile.cpp
     ├── normal_tile.h / normal_tile.cpp
     ├── snake_tile.h / snake_tile.cpp
@@ -111,53 +111,122 @@ SnakesAndLadders/
 
 ## Diseño orientado a objetos
 
-### Jerarquía de casillas — polimorfismo
+### Jerarquía de casillas — `operator+`
 
-`Tile` es la clase base abstracta que define la interfaz común de todas las casillas. Declara el método virtual puro `applyEffect(pos)`, que cada subclase implementa según su comportamiento:
+`Tile` es la clase base abstracta que ahora declara `operator+` como método virtual puro en lugar de `applyEffect`. Cada subclase lo implementa según su tipo:
 
-- `NormalTile` — devuelve la posición sin modificar.
-- `SnakeTile` — resta `penalty` a la posición, con clamp a 1 como mínimo.
-- `LadderTile` — suma `reward` a la posición, con clamp al tamaño del tablero como máximo.
+- `NormalTile::operator+(pos)` — devuelve `pos` sin modificación.
+- `SnakeTile::operator+(pos)` — devuelve `pos - abs(penalty)`, garantizando que siempre se reste independientemente del signo del valor almacenado. El resultado se hace clamp a 1 como mínimo.
+- `LadderTile::operator+(pos)` — devuelve `pos + reward` con clamp al tamaño del tablero como máximo.
 
-`MyGame` mantiene un arreglo de punteros `Tile**`, lo que permite invocar `tiles[i]->applyEffect(pos)` sin conocer el subtipo concreto en tiempo de compilación. El tipo correcto se resuelve en tiempo de ejecución gracias al mecanismo de vtable de C++.
+Además, `Tile` declara una función libre `friend int operator+(int pos, const Tile& t)` que delega en el método virtual. Esto permite la sintaxis natural `landed + *tiles[i]`, donde el entero queda a la izquierda y la casilla a la derecha, y el polimorfismo resuelve en tiempo de ejecución qué implementación ejecutar.
 
-### Jerarquía de juego — herencia
+### Clase `Turn` — `operator<<`
 
-`MyGame` es la clase base abstracta que encapsula el estado común del juego (tablero, jugadores, dado, contadores) y declara `start()` y `runTurn()` como métodos virtuales puros.
+`Turn` es una clase (implementada como `struct`) que agrupa los seis datos de cada turno: número de turno, identificador del jugador, posición previa, valor del dado, tipo de casilla y posición final. Sobreescribe `operator<<` como función `friend` de `std::ostream`, lo que permite imprimir el turno directamente con `std::cout << t`.
 
-- `ManualGame` — implementa `start()` leyendo input del usuario (`C`/`E`) entre cada turno, siguiendo la dinámica interactiva de la Tarea 1.
-- `AutoGame` — implementa `start()` ejecutando todos los turnos de forma automática sin requerir input, hasta que un jugador gane o se alcance el límite de turnos.
+Esto reemplaza la llamada manual a `printTurn(...)` de la Tarea 2. La lógica de formato queda encapsulada dentro de `Turn`, siguiendo el principio de responsabilidad única.
 
-El `main()` recibe el tipo de juego por argumento y crea la instancia correcta mediante un puntero a la clase base (`MyGame*`), aprovechando el polimorfismo para llamar al `start()` adecuado sin condicionales adicionales.
+---
+
+## Sobrecarga de operadores
+
+### `operator+` en la jerarquía `Tile`
+
+**Motivación:** Las casillas tienen efectos distintos sobre la posición del jugador. En lugar de delegar ese cálculo a un método genérico `applyEffect`, se sobrecarga `operator+` para que cada tipo de casilla exprese su comportamiento de forma semántica: sumar una posición a una casilla produce la nueva posición del jugador.
+
+**Implementación:**
+
+```cpp
+// Función libre en tile.h — permite: int + Tile
+friend int operator+(int pos, const Tile& t) {
+    return t.operator+(pos);
+}
+
+// NormalTile — sin efecto
+int NormalTile::operator+(int pos) const {
+    return pos;
+}
+
+// SnakeTile — siempre resta el valor absoluto del penalty
+int SnakeTile::operator+(int pos) const {
+    int result = pos - std::abs(penalty);
+    return (result < 1) ? 1 : result;
+}
+
+// LadderTile — suma el reward con clamp al tamaño del tablero
+int LadderTile::operator+(int pos) const {
+    int result = pos + reward;
+    return (result > size) ? size : result;
+}
+```
+
+**Uso en el turno:**
+
+```cpp
+// antes (Tarea 2)
+int finalPos = tiles[landed - 1]->applyEffect(landed);
+
+// ahora (Tarea 3)
+int finalPos = landed + *tiles[landed - 1];
+```
+
+El polimorfismo en tiempo de ejecución garantiza que se llame al `operator+` correcto según el tipo real de la casilla, sin ningún condicional en el código del turno.
+
+**Ejemplo del enunciado:**
+Jugador en casilla 5, saca 4 en el dado → aterriza en casilla 9. La casilla 9 es una serpiente con `penalty = 4`. El operador calcula `9 - abs(4) = 5`. Si el penalty fuera 8, calcularía `9 - 8 = 1` (clamp a 1 mínimo).
+
+### `operator<<` en `Turn`
+
+**Motivación:** Encapsular el formato de salida del turno dentro de la propia clase, en lugar de dispersar la lógica de impresión en `ManualGame` y `AutoGame` por separado.
+
+**Implementación:**
+
+```cpp
+friend std::ostream& operator<<(std::ostream& os, const Turn& t) {
+    os << t.turnNum  << " "
+       << t.playerId << " "
+       << t.prevPos  << " "
+       << t.roll     << " "
+       << t.tileType << " "
+       << t.finalPos;
+    return os;
+}
+```
+
+**Uso:**
+
+```cpp
+Turn t { turnCount, p.getId(), prevPos, roll,
+         tiles[landed - 1]->getType(), finalPos };
+std::cout << t << std::endl;
+```
+
+Devolver `os` por referencia permite encadenar operaciones como `std::cout << t << std::endl`, siguiendo la convención estándar de C++.
 
 ---
 
 ## Conceptos de POO aplicados
 
-### Herencia
-Dos jerarquías independientes: `Tile → {NormalTile, SnakeTile, LadderTile}` y `MyGame → {ManualGame, AutoGame}`. Las subclases reutilizan el estado y los métodos comunes de la base, sobreescribiendo únicamente el comportamiento que las diferencia.
+### Herencia y polimorfismo (continuación de Tarea 2)
+La jerarquía `Tile → {NormalTile, SnakeTile, LadderTile}` y `MyGame → {ManualGame, AutoGame}` se mantiene intacta. El `operator+` virtual puro reemplaza a `applyEffect` como punto de extensión polimórfico.
 
-### Polimorfismo en tiempo de ejecución
-El arreglo `Tile** tiles` almacena punteros a la clase base. La llamada `tiles[i]->applyEffect(pos)` se resuelve dinámicamente según el tipo real del objeto apuntado. Lo mismo ocurre con `game->start()` desde `main()`: se llama al método correcto de `ManualGame` o `AutoGame` sin que el código cliente sepa cuál es.
+### Sobrecarga de operadores
+Se sobrecargan dos operadores distintos con propósitos complementarios: `operator+` para encapsular la lógica de efectos de casilla con sintaxis expresiva, y `operator<<` para centralizar el formato de salida del turno.
 
 ### Encapsulamiento
-El estado del juego (tablero, jugadores, contadores) es privado o protegido en `MyGame`. Las subclases acceden a él mediante los atributos protegidos declarados en la base, sin exponer la representación interna al exterior.
-
-### Abstracción
-`MyGame` define el contrato del juego (qué debe hacer) sin implementar los detalles (cómo lo hace). `Tile` define el contrato de una casilla con `applyEffect()` como única interfaz pública relevante.
+`Turn` encapsula el formato de impresión. Las subclases de `Tile` encapsulan sus propias reglas de movimiento. Ninguna clase exterior necesita conocer los detalles de cálculo o formato.
 
 ### Responsabilidad única (SRP)
-- `Dice` — simula el dado.
-- `Player` — gestiona identidad y posición.
-- `Tile` y subclases — modelan el efecto de cada casilla.
+- `Turn` — sabe cómo imprimirse.
+- `Tile` y subclases — saben cómo mover al jugador.
 - `MyGame` y subclases — coordinan el flujo del juego.
 
 ---
 
 ## Decisiones de diseño
 
-- Las posiciones de serpientes y escaleras se generan **aleatoriamente** en cada partida usando `rand()`, evitando las casillas 1 y última para garantizar jugabilidad.
-- Si dos casillas especiales coincidirían en la misma posición durante la construcción, el algoritmo reintenta hasta encontrar una casilla normal disponible.
-- Solo se aplica **un efecto por turno**: si el resultado de una serpiente o escalera cae en otra casilla especial, esta segunda se ignora (sección 3.3.7.4 del enunciado).
-- El destructor de `MyGame` libera correctamente la memoria dinámica del arreglo polimórfico (`Tile**`) y del arreglo de jugadores.
-- El `main()` usa un puntero `MyGame*` para instanciar `ManualGame` o `AutoGame` según el argumento recibido, lo que demuestra polimorfismo de forma directa y limpia.
+- `operator+` se declara como método virtual en `Tile` y se expone también como función libre `friend`, lo que habilita la sintaxis `int + Tile` sin romper el polimorfismo.
+- `SnakeTile::operator+` usa `std::abs(penalty)` para garantizar que siempre se reste, independientemente de cómo se haya inicializado el valor de penalización.
+- `Turn` se implementa como `struct` porque todos sus miembros son datos planos de salida; no requiere encapsulamiento adicional.
+- La salida en consola es idéntica a las Tareas 1 y 2. Los únicos cambios son internos al diseño.
