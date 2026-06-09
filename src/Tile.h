@@ -16,7 +16,12 @@ public:
     virtual ~Tile() = default;
 
     char getType() const;
-    virtual int applyEffect(int pos) const = 0;
+    //operator+
+    virtual int operator+(int pos) const = 0;
+
+    friend int operator+(int pos, const Tile& t) {
+        return t.operator+(pos);
+    }
 };
 
 

@@ -13,7 +13,7 @@ private:
 
 public:
     LadderTile(int size, int reward);
-    int applyEffect(int pos) const override;
+    int operator+(int pos) const override;
 };
 
 

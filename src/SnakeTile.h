@@ -5,7 +5,7 @@
 #ifndef HERENCIAPOLIMORFISMO_SNAKETILE_H
 #define HERENCIAPOLIMORFISMO_SNAKETILE_H
 #include "Tile.h"
-
+#include <cmath>
 
 class SnakeTile : public Tile {
 private:
@@ -13,7 +13,7 @@ private:
 
 public:
     SnakeTile(int size, int penalty);
-    int applyEffect(int pos) const override; //override
+    int operator+(int pos) const override;
 };
 
 

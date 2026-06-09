@@ -10,7 +10,7 @@
 class NormalTile : public Tile {
 public:
     explicit NormalTile(int size);
-    int applyEffect(int pos) const override;
+    int operator+(int pos) const override;
 };
 
 

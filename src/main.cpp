@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
 #include "dice.h"
 #include "player.h"
 #include "tile.h"
@@ -12,21 +13,43 @@
 #include "SnakeTile.h"
 #include "LadderTile.h"
 
+
+//Clase Turn + operator
+struct Turn {
+    int  turnNum;
+    int  playerId;
+    int  prevPos;
+    int  roll;
+    char tileType;
+    int  finalPos;
+
+    friend std::ostream& operator<<(std::ostream& os, const Turn& t) {
+        os << t.turnNum  << " "
+           << t.playerId << " "
+           << t.prevPos  << " "
+           << t.roll     << " "
+           << t.tileType << " "
+           << t.finalPos;
+        return os;
+    }
+};
+
+//MyGame (abstracta)
 class MyGame {
 protected:
-    int numTiles;
-    int numSnakes;
-    int numLadders;
-    int penalty;
-    int reward;
-    int numPlayers;
-    int maxTurns;
+    int     numTiles;
+    int     numSnakes;
+    int     numLadders;
+    int     penalty;
+    int     reward;
+    int     numPlayers;
+    int     maxTurns;
 
     Tile**  tiles;
     Player* players;
-    Dice dice;
+    Dice    dice;
 
-    int turnCount;
+    int  turnCount;
     bool gameOver;
 
     void buildBoard() {
@@ -54,16 +77,6 @@ protected:
                 placed++;
             }
         }
-    }
-
-    void printTurn(int turn, int playerId, int prevPos,
-                   int roll, char tileType, int finalPos) const {
-        std::cout << turn     << " "
-                  << playerId << " "
-                  << prevPos  << " "
-                  << roll     << " "
-                  << tileType << " "
-                  << finalPos << std::endl;
     }
 
     bool checkWinner(int pos) const {
@@ -99,7 +112,7 @@ public:
     virtual void runTurn() = 0;
 };
 
-// manual game class
+//ManualGame
 class ManualGame : public MyGame {
 private:
     char getInput() {
@@ -109,11 +122,7 @@ private:
         return c;
     }
 
-public:
-    ManualGame(int t, int s, int l, int pen, int rew, int p, int mt)
-        : MyGame(t, s, l, pen, rew, p, mt) {}
-
-    void runTurn() override {
+    void executeTurn() {
         int idx     = (turnCount - 1) % numPlayers;
         Player& p   = players[idx];
 
@@ -124,11 +133,15 @@ public:
         if (landed > numTiles)
             landed = numTiles;
 
-        char tileType = tiles[landed - 1]->getType();
-        int  finalPos = tiles[landed - 1]->applyEffect(landed);
+        // operator+ : landed + tile resuelve la posición final
+        int finalPos = landed + *tiles[landed - 1];
 
         p.setPosition(finalPos);
-        printTurn(turnCount, p.getId(), prevPos, roll, tileType, finalPos);
+
+        // operator<< imprime el turno
+        Turn t { turnCount, p.getId(), prevPos, roll,
+                 tiles[landed - 1]->getType(), finalPos };
+        std::cout << t << std::endl;
 
         if (checkWinner(finalPos)) {
             printGameOver();
@@ -136,6 +149,12 @@ public:
             gameOver = true;
         }
     }
+
+public:
+    ManualGame(int t, int s, int l, int pen, int rew, int p, int mt)
+        : MyGame(t, s, l, pen, rew, p, mt) {}
+
+    void runTurn() override { executeTurn(); }
 
     void start() override {
         std::cout << "Press C to continue next turn, or E to end the game:" << std::endl;
@@ -165,13 +184,10 @@ public:
     }
 };
 
-// auto game class
+//AutoGame
 class AutoGame : public MyGame {
-public:
-    AutoGame(int t, int s, int l, int pen, int rew, int p, int mt)
-        : MyGame(t, s, l, pen, rew, p, mt) {}
-
-    void runTurn() override {
+private:
+    void executeTurn() {
         int idx     = (turnCount - 1) % numPlayers;
         Player& p   = players[idx];
 
@@ -182,11 +198,13 @@ public:
         if (landed > numTiles)
             landed = numTiles;
 
-        char tileType = tiles[landed - 1]->getType();
-        int  finalPos = tiles[landed - 1]->applyEffect(landed);
+        int finalPos = landed + *tiles[landed - 1];
 
         p.setPosition(finalPos);
-        printTurn(turnCount, p.getId(), prevPos, roll, tileType, finalPos);
+
+        Turn t { turnCount, p.getId(), prevPos, roll,
+                 tiles[landed - 1]->getType(), finalPos };
+        std::cout << t << std::endl;
 
         if (checkWinner(finalPos)) {
             printGameOver();
@@ -194,6 +212,12 @@ public:
             gameOver = true;
         }
     }
+
+public:
+    AutoGame(int t, int s, int l, int pen, int rew, int p, int mt)
+        : MyGame(t, s, l, pen, rew, p, mt) {}
+
+    void runTurn() override { executeTurn(); }
 
     void start() override {
         while (!gameOver) {
@@ -210,34 +234,27 @@ public:
     }
 };
 
-// main
+//main
 int main(int argc, char* argv[]) {
-    int  tiles   = 30;
-    int  snakes  = 3;
-    int  ladders = 3;
-    int  penalty = 3;
-    int  reward  = 3;
-    int  players = 2;
-    int  turns   = 100;
-    char type    = 'M';
+    int  t   = 30, s  = 3, l  = 3;
+    int  pen = 3,  rew = 3, p  = 2;
+    int  mt  = 100;
+    char type = 'M';
 
     if (argc == 9) {
-        tiles   = std::atoi(argv[1]);
-        snakes  = std::atoi(argv[2]);
-        ladders = std::atoi(argv[3]);
-        penalty = std::atoi(argv[4]);
-        reward  = std::atoi(argv[5]);
-        players = std::atoi(argv[6]);
-        turns   = std::atoi(argv[7]);
-        type    = argv[8][0];
+        t    = std::atoi(argv[1]);
+        s    = std::atoi(argv[2]);
+        l    = std::atoi(argv[3]);
+        pen  = std::atoi(argv[4]);
+        rew  = std::atoi(argv[5]);
+        p    = std::atoi(argv[6]);
+        mt   = std::atoi(argv[7]);
+        type = argv[8][0];
     }
 
-    MyGame* game = nullptr;
-
-    if (type == 'A')
-        game = new AutoGame(tiles, snakes, ladders, penalty, reward, players, turns);
-    else
-        game = new ManualGame(tiles, snakes, ladders, penalty, reward, players, turns);
+    MyGame* game = (type == 'A')
+        ? static_cast<MyGame*>(new AutoGame(t, s, l, pen, rew, p, mt))
+        : static_cast<MyGame*>(new ManualGame(t, s, l, pen, rew, p, mt));
 
     game->start();
     delete game;

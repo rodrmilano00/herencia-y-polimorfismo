@@ -7,7 +7,7 @@
 LadderTile::LadderTile(int size, int reward) : Tile('L', size), reward(reward) {
 }
 
-int LadderTile::applyEffect(int pos) const {
+int LadderTile::operator+(int pos) const {
     int result = pos + reward;
     return result > size ? size : result;
 }
